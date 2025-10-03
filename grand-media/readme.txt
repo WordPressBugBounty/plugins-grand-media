@@ -5,7 +5,7 @@ Tags: best gallery plugin, gallery, image gallery, photo gallery, wordpress gall
 Requires at least: 5.3.0
 Tested up to: 6.8
 Requires PHP: 5.6
-Stable tag: 1.24.0
+Stable tag: 1.24.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -138,6 +138,9 @@ Use [Gmedia Support Forum](https://codeasily.com/community/forum/gmedia-gallery-
 
 = Modules Updated =
 * Go to Gmedia Modules page and update installed premium modules to latest versions
+
+= v1.24.1 =
+* Fix Gmedia Library not show images
 
 = v1.24.0 =
 * Compatibility with latest WordPress versions
