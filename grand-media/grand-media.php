@@ -1,15 +1,16 @@
 <?php
 
 /**
- * Plugin Name: Gmedia Gallery
+ * Plugin Name: Gmedia Photo Gallery
  * Plugin URI: http://wordpress.org/extend/plugins/grand-media/
  * Description: Gmedia Gallery - powerful media library plugin for creating beautiful galleries and managing files.
- * Version: 1.25.0
+ * Version: 1.25.1
  * Author: Rattus
  * Author URI: https://codeasily.com/
  * Requires at least: 5.4.0
- * Tested up to: 6.9
- * Stable tag: 1.25.0
+ * Tested up to: 7.1
+ * Stable tag: 1.25.1
+ * License: GPLv2 or later
  * Text Domain: grand-media
  * Domain Path: /lang
  */
@@ -40,21 +41,21 @@ if ( !function_exists( 'gmg_fs' ) ) {
             // Include Freemius SDK.
             require_once dirname( __FILE__ ) . '/vendor/freemius/start.php';
             $gmg_fs = fs_dynamic_init( array(
-                'id'             => '20980',
-                'slug'           => 'grand-media',
-                'type'           => 'plugin',
-                'public_key'     => 'pk_377df98aab7989cdb496abbd72dea',
-                'is_premium'     => false,
-                'has_premium_version' => false,
-                'premium_suffix' => 'Premium',
-                'has_addons'     => false,
-                'has_paid_plans' => true,
-                'menu'           => array(
+                'id'               => '20980',
+                'slug'             => 'grand-media',
+                'type'             => 'plugin',
+                'public_key'       => 'pk_377df98aab7989cdb496abbd72dea',
+                'is_premium'       => false,
+                'premium_suffix'   => 'Premium',
+                'has_addons'       => false,
+                'has_paid_plans'   => true,
+                'menu'             => array(
                     'slug'    => 'GrandMedia',
                     'contact' => false,
                     'support' => false,
                 ),
-                'is_live'        => true,
+                'is_live'          => true,
+                'is_org_compliant' => true,
             ) );
         }
         return $gmg_fs;
@@ -93,7 +94,7 @@ if ( !class_exists( 'Gmedia' ) ) {
      * Class Gmedia
      */
     class Gmedia {
-        public $version = '1.24.1';
+        public $version = '1.25.1';
 
         public $dbversion = '1.8.0';
 
@@ -489,7 +490,7 @@ if ( !class_exists( 'Gmedia' ) ) {
                     'photoswipe',
                     $gmCore->gmedia_url . '/assets/photoswipe/photoswipe.css',
                     array(),
-                    '3.0.5',
+                    GMEDIA_VERSION,
                     'screen'
                 );
                 wp_register_script(
@@ -632,7 +633,7 @@ if ( !class_exists( 'Gmedia' ) ) {
             $module_styles = '';
             $files = glob( $module['path'] . '/css/*.css', GLOB_NOSORT );
             if ( !empty( $files ) ) {
-                $_ver = ( isset( $module['info']['version'] ) ? $module['info']['version'] : false );
+                $_ver = ( isset( $module['info']['version'] ) ? $module['info']['version'] . '-' . GMEDIA_VERSION : GMEDIA_VERSION );
                 $files = array_map( 'basename', $files );
                 foreach ( $files as $file ) {
                     $src = "{$module['url']}/css/{$file}";
@@ -963,7 +964,7 @@ if ( !class_exists( 'Gmedia' ) ) {
             $gmedia_shedules = array(
                 'gmedia_app' => array(
                     'interval' => 5 * DAY_IN_SECONDS,
-                    'display'  => __( 'Gmedia App Defined' ),
+                    'display'  => __( 'Gmedia App Defined', 'grand-media' ),
                 ),
             );
             $shedules = array_merge( $shedules, $gmedia_shedules );

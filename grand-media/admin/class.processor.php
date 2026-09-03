@@ -1,4 +1,7 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
 /**
  * Class GmediaProcessor
@@ -77,7 +80,9 @@ class GmediaProcessor {
 
 		$selected_items = array();
 		if ( $key ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Read-only selection parser; library/term/gallery mutation handlers verify their action nonce and permissions separately.
 			if ( isset( $_POST[ $post_key ] ) ) {
+				// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Also used to display selected items; this helper performs no state changes.
 				$sel_string     = sanitize_text_field( wp_unslash( $_POST[ $post_key ] ) );
 				$selected_items = array_filter( explode( ',', $sel_string ), 'is_numeric' );
 			} elseif ( isset( $_COOKIE[ $key ] ) ) {
@@ -106,6 +111,12 @@ class GmediaProcessor {
 			$author = wp_parse_id_list( $author_id_list );
 			if ( ! $gmCore->caps['gmedia_show_others_media'] ) {
 				$author = array_intersect( array( $user_ID, 0 ), $author );
+				if ( empty( $author ) ) {
+					// The requested authors are all off-limits for this user. Fall
+					// back to their own scope: an empty list would be read by the
+					// query layer as "no author restriction" and leak everyone.
+					$author = array( $user_ID, 0 );
+				}
 			}
 		}
 

@@ -1,4 +1,7 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
 /**
  * GmediaAdmin - Admin Section for GRAND Media
@@ -32,17 +35,20 @@ class GmediaAdmin {
 		if ( $page && ( false !== strpos( $page, 'GrandMedia' ) ) ) {
 			$this->body_classes[] = 'grand-media-admin-page';
 
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only layout flag selects body classes, not an action.
 			if ( ! isset( $_GET['gmediablank'] ) || 'library' === $gmCore->_get( 'gmediablank' ) ) {
 				$this->body_classes[] = $page;
 				$mode                 = $gmCore->_get( 'mode' );
 				if ( $mode ) {
 					$this->body_classes[] = $page . '_' . $mode;
 				}
+				// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Editor navigation only adds a body class.
 				if ( isset( $_GET['edit_term'] ) || isset( $_GET['gallery_module'] ) || isset( $_GET['preset'] ) ) {
 					$this->body_classes[] = $page . '_edit';
 				}
 			}
 
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Register an iframe route; the updater action verifies its nonce at gmedia_do_update.
 			if ( ( 'admin.php' === $pagenow ) && isset( $_GET['gmediablank'] ) ) {
 				add_action( 'admin_init', [ &$this, 'gmedia_blank_page' ] );
 			}
@@ -59,12 +65,21 @@ class GmediaAdmin {
 		global $gmCore;
 
 		add_filter( 'admin_body_class', [ &$this, 'admin_body_class' ] );
+		?>
+		<style id="gmedia_admin_menu_icon_css">
+			#adminmenu #toplevel_page_GrandMedia .wp-menu-image img {
+				width: 20px;
+				height: 20px;
+				box-sizing: content-box;
+			}
+		</style>
+		<?php
 
 		$page = $gmCore->_get( 'page' );
 		if ( $page && ( false !== strpos( $page, 'GrandMedia' ) ) ) {
 			?>
 			<style id="gmedia_admin_css">html, body {
-                    background: <?php echo isset( $_GET['gmediablank'] ) ? 'transparent' : '#708090'; ?>;
+                    background: <?php echo isset( $_GET['gmediablank'] ) ? 'transparent' : '#708090'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only layout flag selects one of two literal colors. ?>;
                 }</style>
 			<?php
 		}
@@ -83,6 +98,7 @@ class GmediaAdmin {
 		$classes = $this->body_classes;
 
 		$classes[] = $classes_string;
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only iframe layout flag; no form data is processed.
 		if ( isset( $_GET['gmediablank'] ) ) {
 			$classes[] = 'gmedia-blank gmedia_' . $gmCore->_get( 'gmediablank', '' );
 		}
@@ -95,10 +111,52 @@ class GmediaAdmin {
 	 * Load gmedia pages in wpless interface
 	 */
 	public function gmedia_blank_page() {
-		set_current_screen( 'GrandMedia_Settings' );
-
-		global $gmCore, $gmProcessor, $gm_allowed_tags, $hook_suffix;
+		global $gmCore, $gmDB, $gmProcessor, $gm_allowed_tags, $hook_suffix;
 		$gmediablank = $gmCore->_get( 'gmediablank', '' );
+		$allowed    = true;
+		switch ( $gmediablank ) {
+			case 'update_plugin':
+				$allowed = current_user_can( 'manage_options' );
+				if ( $allowed ) {
+					check_admin_referer( 'gmedia_update' );
+				}
+				break;
+			case 'module_preview':
+				$allowed = current_user_can( 'gmedia_module_manage' );
+				break;
+			case 'library':
+				$allowed = current_user_can( 'gmedia_library' );
+				break;
+			case 'image_editor':
+			case 'map_editor':
+				$allowed = current_user_can( 'gmedia_library' ) && current_user_can( 'gmedia_edit_media' );
+				if ( $allowed ) {
+					$item    = $gmDB->get_gmedia( (int) $gmCore->_get( 'id', 0 ) );
+					$allowed = $item && ( get_current_user_id() === (int) $item->author || current_user_can( 'gmedia_edit_others_media' ) );
+				}
+				break;
+			case 'comments':
+				$allowed = current_user_can( 'gmedia_library' );
+				if ( $allowed ) {
+					$gmedia_id = (int) $gmCore->_get( 'gmedia_id', 0 );
+					if ( $gmedia_id ) {
+						$item   = $gmDB->get_gmedia( $gmedia_id );
+						$author = $item ? (int) $item->author : -1;
+					} else {
+						$term_id = (int) $gmCore->_get( 'gmedia_term_id', 0 );
+						$item    = $term_id ? $gmDB->get_term( $term_id ) : null;
+						$author  = $item ? (int) $item->global : -1;
+					}
+					// Match the library's read scope; comment editing retains WordPress's own checks.
+					$allowed = $item && ( 0 === $author || get_current_user_id() === $author || current_user_can( 'gmedia_show_others_media' ) );
+				}
+				break;
+		}
+		if ( ! $allowed ) {
+			wp_die( esc_html__( 'You are not allowed to run this process.', 'grand-media' ), '', array( 'response' => 403 ) );
+		}
+
+		set_current_screen( 'GrandMedia_Settings' );
 		$hook_suffix = 'gmedia_' . $gmediablank;
 		define( 'IFRAME_REQUEST', true );
 
@@ -161,7 +219,7 @@ class GmediaAdmin {
 				&$this,
 				'shell',
 			],
-			'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cudzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+CjxzdmcgdmVyc2lvbj0iMS4xIiBpZD0iTGF5ZXJfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgeD0iMHB4IiB5PSIwcHgiIHdpZHRoPSIyMHB4IiBoZWlnaHQ9IjIwcHgiIHZpZXdCb3g9IjAgMCAyMCAyMCIgZW5hYmxlLWJhY2tncm91bmQ9Im5ldyAwIDAgMjAgMjAiIHhtbDpzcGFjZT0icHJlc2VydmUiPiAgPGltYWdlIGlkPSJpbWFnZTAiIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgeD0iMCIgeT0iMCIKICAgIHhsaW5rOmhyZWY9ImRhdGE6aW1hZ2UvcG5nO2Jhc2U2NCxpVkJPUncwS0dnb0FBQUFOU1VoRVVnQUFBQlFBQUFBVUNBTUFBQUM2ViswL0FBQUFCR2RCVFVFQUFMR1BDL3hoQlFBQUFDQmpTRkpOCkFBQjZKZ0FBZ0lRQUFQb0FBQUNBNkFBQWRUQUFBT3BnQUFBNm1BQUFGM0NjdWxFOEFBQUJrbEJNVkVVeFpua3haM2d4WjNoQ2RJTnUKbEtBK2NZQnBrSjJRcmJhb3Y4YTV5OUdadEx5UnJyZG1qcHMzYTN4WmhKS0txYktPckxXcndjaW52c1dWc2JxM3l0Q1hzcnRWZ1k5UwpmNDZndWNGN25hZzdibjVFZFlWeGxxS01xclN3eGN1aHVzS2Z1TUMrejlSMm1xWTZibjZ1dzhyNy9QekYxTm0weU03dDh2UHo5dmVGCnBhL2Y1K3BiaHBSSWVJZCtvS3FOcTdTZHQ3OWhpcGN5YUhuSDF0clMzdUZIZDRiSzJOMzUrL3YzK2ZxOXp0UmFoWk5QZll5Qm9xeUMKbzYwOGIzOUdkb1poaTVoT2ZJdnE3L0dwdjhiLy8vLzIrUG45L2YzQjBkWkFjb0tZczd3emFIbSt6OVZxa1oxWGc1SFQzK0xZNHVaNgpuYWh3bGFGRGRJVFAzT0JLZVloTWU0bnc5UFhoNmV2eDlmYkwyZDFUZ0k1em1LTXphWHJUM3VLWXM3dlAyOS9WNE9PY3RyN2c2T3VVCnNMbE5mSXU0eTlEbzd2QkZkb1YzbTZibTdlODViWDNJMXR1RHBLN1EzT0JZaEpHUHJMWEMwdGVsdmNSSmVZamI1ZWpOMnQ1eWw2S1cKc3JyYjVPZUFvYXhqakpuZTUrbDJtcVhFMDlpSHByQnRrNTl5bDZOOG5xazRiSDNXNGVUVTMrUFIzZUdxd01jY1RNSnpBQUFBQW5SUwpUbE51MlhMaTRXRUFBQUFCWWt0SFJFVDV0SmpCQUFBQUNYQklXWE1BQUFzVEFBQUxFd0VBbXB3WUFBQUFCM1JKVFVVSDRBc0NDRGNJCmw0WXhCZ0FBQVIxSlJFRlVHTk5qWUdCa1FnT01ESmhpSUZFNGs1bUZGY2FFQzdLeGMzQnljZlB3SWd2eWNmRUxDQW9KYzRxSThvdEIKQmNVRkpDU2xtS1JsWklYbDVCVVVsVUNDeWlxcWF1b2FtbHJhT3N4TXVucjZCb1pBUVNOakUxTW1Kak56QzBzQkt5WW1hMTBiUHFDZwpyWWFkdllLRG81T3ppNnVidTRlOHA1QVhVTkJiMGNmWHo5OHVJRkNDS1VneE9NUk9DR2hScUdaWU9MTmRSR1JVZ0FFVGsxU0VYMVEwCkUwTk1ySGRjZklKVVlwSzdiRExRMHBUVXRIUW1ob3pNTEgzVGhPd2MzY3pjUExEelRMU1lHUElMbUR3S2k0cExtRXFUSWQ3Z0tHUmkKWUF1elk3SXJpeXV2cUlTSVNWVlZBeTJxQ2ErdERtU3BxMk1KckZkcXlNbjN5MjRFQ25weEp6UWxOUHZGeHBxMDVBWUh4N2Z5SW9VUwpNc0FleU5paUF3Q3FwalN3RnBqcGxnQUFBQ1YwUlZoMFpHRjBaVHBqY21WaGRHVUFNakF4TmkweE1TMHdNbFF3T0RvMU5Ub3dPQzB3Ck56b3dNSWl4dXBvQUFBQWxkRVZZZEdSaGRHVTZiVzlrYVdaNUFESXdNVFl0TVRFdE1ESlVNRGc2TlRVNk1EZ3RNRGM2TURENTdBSW0KQUFBQUFFbEZUa1N1UW1DQyIgLz4KPC9zdmc+Cg==',
+			plugins_url( 'assets/icons/icon_gmedia_rounded.png', dirname( __FILE__ ) ),
 			11
 		);
 		$this->pages[] = add_submenu_page( 'GrandMedia', __( 'Gmedia Library', 'grand-media' ), __( 'Gmedia Library', 'grand-media' ), 'gmedia_library', 'GrandMedia', [ &$this, 'shell' ] );
@@ -195,7 +253,7 @@ class GmediaAdmin {
 
 		// check for upgrade.
 		if ( get_option( 'gmediaDbVersion' ) !== GMEDIA_DBVERSION ) {
-			if ( get_transient( 'gmediaUpgrade' ) || ( 'gmedia' === $gmCore->_get( 'do_update' ) ) ) {
+			if ( current_user_can( 'manage_options' ) && ( get_transient( 'gmediaUpgrade' ) || ( 'gmedia' === $gmCore->_get( 'do_update' ) ) ) ) {
 				$sideLinks['grandTitle'] = __( 'Updating GmediaGallery Plugin', 'grand-media' );
 				$sideLinks['sideLinks']  = '';
 				$gmProcessor->page       = 'GrandMedia_Update';
@@ -203,6 +261,22 @@ class GmediaAdmin {
 				return;
 			}
 		}
+
+		// phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion -- PayPal serves an unversioned SDK URL; preserve the provider URL without inventing a version.
+		wp_enqueue_script( 'gmedia-paypal-donate', 'https://www.paypalobjects.com/donate/sdk/donate-sdk.js', [], null, true );
+		wp_add_inline_script(
+			'gmedia-paypal-donate',
+			"PayPal.Donation.Button({
+				env: 'production',
+				hosted_button_id: 'QC8SXC3HSSJ36',
+				image: {
+					src: 'https://pics.paypal.com/00/s/NWYwYzFhMjktZjY2NS00MTE5LThkNmMtYjBjZjA3OTNlZDNk/file.PNG',
+					alt: 'Donate with PayPal button',
+					title: 'PayPal - The safer, easier way to pay online!',
+				},
+			}).render('#donate-button');",
+			'after'
+		);
 
 		//global $wpdb;
 		//$query = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}gmedia_term");
@@ -244,18 +318,6 @@ class GmediaAdmin {
 							<div class="card-body">
 								<div id='donate-button-container'>
 									<div id='donate-button'></div>
-									<script src='https://www.paypalobjects.com/donate/sdk/donate-sdk.js' charset='UTF-8'></script>
-									<script>
-                                      PayPal.Donation.Button({
-                                        env: 'production',
-                                        hosted_button_id: 'QC8SXC3HSSJ36',
-                                        image: {
-                                          src: 'https://pics.paypal.com/00/s/NWYwYzFhMjktZjY2NS00MTE5LThkNmMtYjBjZjA3OTNlZDNk/file.PNG',
-                                          alt: 'Donate with PayPal button',
-                                          title: 'PayPal - The safer, easier way to pay online!',
-                                        },
-                                      }).render('#donate-button');
-									</script>
 								</div>
 
 								<style>
@@ -305,14 +367,6 @@ class GmediaAdmin {
 								</div>
 								<?php
 							}
-						}
-						if ( (int) $gmGallery->options['twitter'] ) {
-							?>
-							<div class="card p-0 d-none d-xl-block d-sm-none">
-								<a class="twitter-timeline" data-height="600" href="https://twitter.com/CodEasily/timelines/648240437141086212?ref_src=twsrc%5Etfw">#GmediaGallery - Curated tweets by CodEasily</a>
-								<script <?php echo 'async src="https://platform.twitter.com/widgets.js" charset="utf-8"'; ?>></script>
-							</div>
-							<?php
 						}
 						?>
 					</div>
@@ -423,6 +477,7 @@ class GmediaAdmin {
 				break;
 			case 'GrandMedia_Albums':
 			case 'GrandMedia_Categories':
+				// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Select an existing view; term mutations are authorized by their processor.
 				if ( isset( $_GET['edit_term'] ) ) {
 					include_once dirname( __FILE__ ) . '/pages/terms/edit-term.php';
 				} else {
@@ -433,6 +488,7 @@ class GmediaAdmin {
 				include_once dirname( __FILE__ ) . '/pages/terms/terms.php';
 				break;
 			case 'GrandMedia_Galleries':
+				// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Select an existing view; gallery mutations are authorized by their processor.
 				if ( isset( $_GET['gallery_module'] ) || isset( $_GET['edit_term'] ) ) {
 					include_once dirname( __FILE__ ) . '/pages/galleries/edit-gallery.php';
 				} else {
@@ -440,6 +496,7 @@ class GmediaAdmin {
 				}
 				break;
 			case 'GrandMedia_Modules':
+				// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Select an existing view; preset mutations are authorized by their processor.
 				if ( isset( $_GET['preset_module'] ) || isset( $_GET['preset'] ) ) {
 					include_once dirname( __FILE__ ) . '/pages/modules/edit-preset.php';
 				} else {
@@ -585,6 +642,7 @@ class GmediaAdmin {
 				case 'GrandMedia_WordpressLibrary':
 					break;
 				case 'GrandMedia_Albums':
+					// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Editor navigation only selects assets to enqueue.
 					if ( isset( $_GET['edit_term'] ) ) {
 						if ( $gmCore->caps['gmedia_album_manage'] ) {
 							wp_enqueue_script( 'jquery-ui-sortable' );
@@ -607,6 +665,7 @@ class GmediaAdmin {
 							wp_enqueue_script( 'jquery.plupload.queue', $gmCore->gmedia_url . '/assets/jquery.plupload.queue/jquery.plupload.queue.js', [ 'plupload' ], '2.3.9', true );
 						}
 					}
+					// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Import navigation only enqueues the file-tree UI; it does not import files.
 					if ( ! empty( $_GET['import'] ) ) {
 						wp_enqueue_style( 'jqueryFileTree', $gmCore->gmedia_url . '/assets/jqueryFileTree/jqueryFileTree.css', [], '1.0.1', 'screen' );
 						wp_enqueue_script(
@@ -625,6 +684,7 @@ class GmediaAdmin {
 					// under construction.
 					break;
 				case 'GrandMedia_Galleries':
+					// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Gallery editor navigation only selects assets to enqueue.
 					if ( $gmCore->caps['gmedia_gallery_manage'] && ( isset( $_GET['gallery_module'] ) || isset( $_GET['edit_term'] ) ) ) {
 
 						wp_enqueue_script( 'jquery-ui-sortable' );
@@ -637,6 +697,7 @@ class GmediaAdmin {
 					}
 					break;
 				case 'GrandMedia_Modules':
+					// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Preset editor navigation only selects assets to enqueue.
 					if ( isset( $_GET['preset_module'] ) || isset( $_GET['preset'] ) ) {
 
 						wp_enqueue_script( 'jquery-ui-sortable' );
@@ -688,7 +749,7 @@ class GmediaAdmin {
 
 				$presets                = $gmDB->get_terms( 'gmedia_module', [ 'status' => $module_name ] );
 				$option                 = [];
-				$option[ $module_name ] = esc_html( $module_data['title'] . ' - ' . __( 'Default Settings' ) );
+				$option[ $module_name ] = esc_html( $module_data['title'] . ' - ' . __( 'Default Settings' , 'grand-media') );
 				foreach ( $presets as $preset ) {
 					if ( ! (int) $preset->global && '[' . $module_name . ']' === $preset->name ) {
 						continue;
@@ -699,7 +760,7 @@ class GmediaAdmin {
 						$by_author    = $display_name ? ' [' . $display_name . ']' : '';
 					}
 					if ( '[' . $module_name . ']' === $preset->name ) {
-						$option[ $preset->term_id ] = esc_html( $module_data['title'] . $by_author . ' - ' . __( 'Default Settings' ) );
+						$option[ $preset->term_id ] = esc_html( $module_data['title'] . $by_author . ' - ' . __( 'Default Settings' , 'grand-media') );
 					} else {
 						$preset_name                = str_replace( '[' . $module_name . '] ', '', $preset->name );
 						$option[ $preset->term_id ] = esc_html( $module_data['title'] . $by_author . ' - ' . $preset_name );
@@ -816,7 +877,7 @@ class GmediaAdmin {
 		$screen->add_help_tab(
 			[
 				'id'      => 'help_' . $screen_id . '_support',
-				'title'   => __( 'Support' ),
+				'title'   => __( 'Support' , 'grand-media'),
 				'content' =>
 					__(
 						'<h4>First steps</h4>
@@ -845,9 +906,10 @@ class GmediaAdmin {
 					$screen->add_help_tab(
 						[
 							'id'      => 'help_' . $screen_id . '_license',
-							'title'   => __( 'License Key' ),
+							'title'   => __( 'License Key' , 'grand-media'),
 							'content' =>
 								sprintf(
+									/* translators: 1: Gmedia support forum URL, 2: Developer contact email address. */
 									__(
 										'<h4>Should I buy it, to use plugin?</h4>
 <p>No, plugin is absolutely free and all modules for it are free to install.</p>
@@ -990,6 +1052,7 @@ class GmediaAdmin {
 					}
 					break;
 				case 'GrandMedia_Albums':
+					// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Choose screen-option fields to display; WordPress separately verifies option submissions.
 					if ( isset( $_GET['edit_term'] ) ) {
 						$settings = '
 						<div class="form-inline float-start row row-cols-auto">
@@ -1023,6 +1086,7 @@ class GmediaAdmin {
 					}
 					break;
 				case 'GrandMedia_Categories':
+					// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Choose screen-option fields to display; WordPress separately verifies option submissions.
 					if ( isset( $_GET['edit_term'] ) ) {
 						$settings = '
 						<div class="form-inline float-start row row-cols-auto">

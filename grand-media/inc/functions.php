@@ -1,4 +1,7 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
 /**
  * Check if user has premium license (Freemius or Legacy)
@@ -21,6 +24,46 @@ function gmedia_has_premium_license() {
 	}
 
 	return false;
+}
+
+/**
+ * Check if premium features are running on an expired Freemius license
+ *
+ * Freemius keeps features enabled after expiration unless the plan blocks them,
+ * so this state grants premium access but still needs a renewal.
+ *
+ * @return bool
+ */
+function gmedia_has_expired_premium_license() {
+	if ( ! function_exists( 'gmg_fs' ) ) {
+		return false;
+	}
+
+	$fs = gmg_fs();
+
+	return $fs->has_features_enabled_license() && ! $fs->has_active_valid_license();
+}
+
+/**
+ * Get the raw expiration datetime of the current Freemius license
+ *
+ * Returns the unformatted API value so callers stay responsible for display.
+ * Lifetime licenses have no expiration and return an empty string.
+ *
+ * @return string
+ */
+function gmedia_get_premium_license_expiration() {
+	if ( ! function_exists( 'gmg_fs' ) ) {
+		return '';
+	}
+
+	$license = gmg_fs()->_get_license();
+
+	if ( ! is_object( $license ) || empty( $license->expiration ) ) {
+		return '';
+	}
+
+	return (string) $license->expiration;
 }
 
 /**
@@ -613,13 +656,13 @@ function gmedia_search_database_for_transients_by_prefix( $prefix ) {
 	// Add our prefix after concating our prefix with the _transient prefix.
 	$prefix = $wpdb->esc_like( '_transient_' . $prefix . '_' );
 
-	// Build up our SQL query.
-	$sql = "SELECT `option_name` FROM $wpdb->options WHERE `option_name` LIKE '%s'";
-
 	// Execute our query.
-	$transients = $wpdb->get_results( $wpdb->prepare( $sql, $prefix . '%' ), ARRAY_A );
+	$transients = $wpdb->get_results(
+		$wpdb->prepare( "SELECT `option_name` FROM {$wpdb->options} WHERE `option_name` LIKE %s", $prefix . '%' ),
+		ARRAY_A
+	);
 
-	// If if looks good, pass it back.
+	// If it looks good, pass it back.
 	if ( $transients && ! is_wp_error( $transients ) ) {
 		return $transients;
 	}

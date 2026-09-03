@@ -1,4 +1,7 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
 /**
  * Gmedia Database Class
@@ -86,20 +89,20 @@ class GmediaDB {
 				$matches[0]
 			);
 
-			$n         = '%';
 			$searchand = '';
 
 			foreach ( (array) $search_terms as $term ) {
-				$term = addslashes_gpc( $term );
+				$search_like = '%' . $wpdb->esc_like( $term ) . '%';
 
-				$search .= "{$searchand}(($wpdb->posts.post_title LIKE '{$n}{$term}{$n}') OR ($wpdb->posts.post_content LIKE '{$n}{$term}{$n}') OR ($wpdb->posts.post_name LIKE '{$n}{$term}{$n}'))";
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $searchand is only an empty string or the literal AND separator; search values use placeholders.
+				$search .= $wpdb->prepare( "{$searchand}(($wpdb->posts.post_title LIKE %s) OR ($wpdb->posts.post_content LIKE %s) OR ($wpdb->posts.post_name LIKE %s))", $search_like, $search_like, $search_like );
 
 				$searchand = ' AND ';
 			}
 
-			$term = esc_sql( $s );
 			if ( count( $search_terms ) > 1 && $search_terms[0] !== $s ) {
-				$search .= " OR ($wpdb->posts.post_title LIKE '{$n}{$term}{$n}') OR ($wpdb->posts.post_content LIKE '{$n}{$term}{$n}') OR ($wpdb->posts.post_name LIKE '{$n}{$term}{$n}')";
+				$search_like = '%' . $wpdb->esc_like( $s ) . '%';
+				$search      .= $wpdb->prepare( " OR ($wpdb->posts.post_title LIKE %s) OR ($wpdb->posts.post_content LIKE %s) OR ($wpdb->posts.post_name LIKE %s)", $search_like, $search_like, $search_like );
 			}
 
 			if ( ! empty( $search ) ) {
@@ -235,20 +238,20 @@ class GmediaDB {
 				$matches[0]
 			);
 
-			$n         = '%';
 			$searchand = '';
 
 			foreach ( (array) $search_terms as $term ) {
-				$term = addslashes_gpc( $term );
+				$search_like = '%' . $wpdb->esc_like( $term ) . '%';
 
-				$search .= "{$searchand}(($wpdb->posts.post_title LIKE '{$n}{$term}{$n}') OR ($wpdb->posts.post_content LIKE '{$n}{$term}{$n}') OR ($wpdb->posts.post_name LIKE '{$n}{$term}{$n}'))";
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $searchand is only an empty string or the literal AND separator; search values use placeholders.
+				$search .= $wpdb->prepare( "{$searchand}(($wpdb->posts.post_title LIKE %s) OR ($wpdb->posts.post_content LIKE %s) OR ($wpdb->posts.post_name LIKE %s))", $search_like, $search_like, $search_like );
 
 				$searchand = ' AND ';
 			}
 
-			$term = esc_sql( $s );
 			if ( count( $search_terms ) > 1 && $search_terms[0] !== $s ) {
-				$search .= " OR ($wpdb->posts.post_title LIKE '{$n}{$term}{$n}') OR ($wpdb->posts.post_content LIKE '{$n}{$term}{$n}') OR ($wpdb->posts.post_name LIKE '{$n}{$term}{$n}')";
+				$search_like = '%' . $wpdb->esc_like( $s ) . '%';
+				$search      .= $wpdb->prepare( " OR ($wpdb->posts.post_title LIKE %s) OR ($wpdb->posts.post_content LIKE %s) OR ($wpdb->posts.post_name LIKE %s)", $search_like, $search_like, $search_like );
 			}
 
 			if ( ! empty( $search ) ) {
@@ -430,7 +433,7 @@ class GmediaDB {
 		if ( ! empty( $files ) ) {
 			foreach ( $files as $cachefile ) {
 				$cachefile = apply_filters( 'gm_delete_file', $cachefile );
-				@unlink( $cachefile );
+				wp_delete_file( $cachefile );
 			}
 		}
 
@@ -445,7 +448,7 @@ class GmediaDB {
 			}
 			foreach ( $folders as $dir ) {
 				$file = apply_filters( 'gm_delete_file', $gmCore->upload['path'] . '/' . $dir . '/' . $gmedia->gmuid );
-				@unlink( $file );
+				wp_delete_file( $file );
 			}
 		} else {
 			if ( $delete_original_file ) {
@@ -453,7 +456,7 @@ class GmediaDB {
 
 				$filepath = $dir . '/' . $gmedia->gmuid;
 				$file     = apply_filters( 'gm_delete_file', $filepath );
-				@unlink( $file );
+				wp_delete_file( $file );
 			}
 
 			/*
@@ -461,7 +464,7 @@ class GmediaDB {
 			if(!empty($files)){
 				foreach($files as $file){
 					$file = apply_filters('gm_delete_file', $file);
-					@unlink($file);
+					wp_delete_file($file);
 				}
 			}
 			*/
@@ -1163,7 +1166,7 @@ class GmediaDB {
 		global $wpdb, $user_ID, $gmCore;
 
 		if ( empty( $term ) ) {
-			return new WP_Error( 'invalid_term', esc_html__( 'Empty Term' ) );
+			return new WP_Error( 'invalid_term', esc_html__( 'Empty Term' , 'grand-media') );
 		}
 
 		if ( is_object( $term ) ) {
@@ -1235,7 +1238,7 @@ class GmediaDB {
 
 		$term_id = $this->term_exists( $term_id );
 		if ( ! $term_id ) {
-			return new WP_Error( 'gm_invalid_term_id', __( 'Invalid term ID' ) );
+			return new WP_Error( 'gm_invalid_term_id', __( 'Invalid term ID' , 'grand-media') );
 		}
 
 		do_action( 'sort_gmedia_term', $term_id );
@@ -1282,7 +1285,7 @@ class GmediaDB {
 				if ( $values ) {
 					// phpcs:ignore
 					if ( false === $wpdb->query( "INSERT INTO {$wpdb->prefix}gmedia_term_relationships (gmedia_id, gmedia_term_id, gmedia_order) VALUES " . join( ',', $values ) . ' ON DUPLICATE KEY UPDATE gmedia_order = VALUES(gmedia_order)' ) ) {
-						return new WP_Error( 'db_insert_error', __( 'Could not insert gmedia term relationship into the database' ), $wpdb->last_error );
+						return new WP_Error( 'db_insert_error', __( 'Could not insert gmedia term relationship into the database' , 'grand-media'), $wpdb->last_error );
 					}
 				}
 				$this->clean_object_term_cache( $final_gmedia_ids );
@@ -1730,12 +1733,12 @@ class GmediaDB {
 			} else {
 				$q['search_terms'] = $q['s'];
 			}
-			$n         = '%';
 			$searchand = '';
 			foreach ( (array) $q['search_terms'] as $term ) {
-				$term = esc_sql( addcslashes( $term, '_%\\' ) );
+				$search_like = '%' . $wpdb->esc_like( $term ) . '%';
 
-				$search .= "{$searchand}(({$wpdb->prefix}gmedia.title LIKE '{$n}{$term}{$n}') OR ({$wpdb->prefix}gmedia.description LIKE '{$n}{$term}{$n}') OR ({$wpdb->prefix}gmedia.gmuid LIKE '{$n}{$term}{$n}'))";
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $searchand is only an empty string or the literal AND separator; search values use placeholders.
+				$search .= $wpdb->prepare( "{$searchand}(({$wpdb->prefix}gmedia.title LIKE %s) OR ({$wpdb->prefix}gmedia.description LIKE %s) OR ({$wpdb->prefix}gmedia.gmuid LIKE %s))", $search_like, $search_like, $search_like );
 
 				$searchand = ' AND ';
 			}
@@ -2100,7 +2103,7 @@ class GmediaDB {
 
 		// Author/user stuff for ID.
 		if ( ! empty( $q['author'] ) && '0' !== $q['author'] ) {
-			$q['author'] = addslashes_gpc( '' . urldecode( $q['author'] ) );
+			$q['author'] = wp_slash( '' . urldecode( $q['author'] ) );
 			$authors     = array_unique( array_map( 'intval', preg_split( '/[,\s]+/', $q['author'] ) ) );
 			foreach ( $authors as $author ) {
 				$key         = $author > 0 ? 'author__in' : 'author__not_in';
@@ -2161,7 +2164,7 @@ class GmediaDB {
 				$allowed_keys[] = 'custom';
 			}
 			$q['orderby'] = urldecode( $q['orderby'] );
-			$q['orderby'] = addslashes_gpc( $q['orderby'] );
+			$q['orderby'] = wp_slash( $q['orderby'] );
 			if ( in_array( $q['orderby'], array( '_created_timestamp', 'views', 'likes', '_size' ), true ) ) {
 				$q['meta_key'] = $q['orderby'];
 				$q['orderby']  = 'meta_value_num';
@@ -2382,7 +2385,7 @@ class GmediaDB {
 		if ( isset( $q['cat'] ) ) {
 			if ( ! empty( $q['cat'] ) && ( '0' !== $q['cat'] ) && ( 0 !== $q['cat'] ) ) {
 				$q['cat']  = '' . urldecode( $q['cat'] ) . '';
-				$q['cat']  = addslashes_gpc( $q['cat'] );
+				$q['cat']  = wp_slash( $q['cat'] );
 				$cat_array = preg_split( '/[,\s]+/', $q['cat'] );
 				$q['cat']  = '';
 				$req_cats  = array();
@@ -2856,7 +2859,7 @@ class GmediaDB {
 		if ( isset( $q['alb'] ) ) {
 			if ( ! empty( $q['alb'] ) && ( '0' !== $q['alb'] ) && ( 0 !== $q['alb'] ) ) {
 				$q['alb']  = '' . urldecode( $q['alb'] ) . '';
-				$q['alb']  = addslashes_gpc( $q['alb'] );
+				$q['alb']  = wp_slash( $q['alb'] );
 				$alb_array = preg_split( '/[,\s]+/', $q['alb'] );
 				$q['alb']  = '';
 				$req_albs  = array();
@@ -2941,6 +2944,7 @@ class GmediaDB {
 					'meta_key'         => '_gmedia_term_ID',
 					'meta_compare'     => 'IN',
 					'meta_value'       => $q['album__in'],
+					// phpcs:ignore WordPressVIPMinimum.Performance.WPQueryParams.SuppressFilters_suppress_filters -- Internal ID-to-date lookup for the explicitly selected albums, not a language-filtered public post query.
 					'suppress_filters' => true,
 				)
 			);
@@ -3404,7 +3408,7 @@ class GmediaDB {
 			if ( $values ) {
 				// phpcs:ignore
 				if ( false === $wpdb->query( "INSERT INTO {$wpdb->prefix}gmedia_term_relationships (gmedia_id, gmedia_term_id, term_order) VALUES " . join( ',', $values ) . ' ON DUPLICATE KEY UPDATE term_order = VALUES(term_order)' ) ) {
-					return new WP_Error( 'db_insert_error', __( 'Could not insert gmedia term relationship into the database' ), $wpdb->last_error );
+					return new WP_Error( 'db_insert_error', __( 'Could not insert gmedia term relationship into the database' , 'grand-media'), $wpdb->last_error );
 				}
 			}
 		}
@@ -3456,12 +3460,12 @@ class GmediaDB {
 		}
 
 		if ( 0 === $term ) {
-			return new WP_Error( 'gm_invalid_term_id', __( 'Invalid term ID' ) );
+			return new WP_Error( 'gm_invalid_term_id', __( 'Invalid term ID' , 'grand-media') );
 		}
 
 		$term = trim( wp_strip_all_tags( stripslashes( $term ) ) );
 		if ( '' === $term ) {
-			return new WP_Error( 'gm_empty_term_name', __( 'A name is required for this term' ) );
+			return new WP_Error( 'gm_empty_term_name', __( 'A name is required for this term' , 'grand-media') );
 		}
 
 		$defaults = array( 'description' => '', 'global' => intval( $user_ID ), 'status' => 'publish' );
@@ -3507,14 +3511,14 @@ class GmediaDB {
 		$term_id = $this->term_exists( $name, $taxonomy, $global );
 		if ( $term_id ) {
 			// Same name, same global.
-			return new WP_Error( 'gm_term_exists', __( 'A term with the name provided already exists.' ), $term_id );
+			return new WP_Error( 'gm_term_exists', __( 'A term with the name provided already exists.' , 'grand-media'), $term_id );
 		}
 
 		do_action( 'create_gmedia_term', $term_id, $taxonomy );
 
 		// This term does not exist, Create it.
 		if ( false === $wpdb->insert( $wpdb->prefix . 'gmedia_term', compact( 'name', 'taxonomy', 'description', 'global', 'status' ) + array( 'count' => 0 ) ) ) {
-			return new WP_Error( 'gm_db_insert_error', __( 'Could not insert term into the database' ), $wpdb->last_error );
+			return new WP_Error( 'gm_db_insert_error', __( 'Could not insert term into the database' , 'grand-media'), $wpdb->last_error );
 		}
 		$term_id = (int) $wpdb->insert_id;
 
@@ -4020,7 +4024,7 @@ class GmediaDB {
 		$name = stripslashes( $name );
 		$name = $gmCore->mb_convert_encoding_utf8( $name );
 		if ( '' === trim( $name ) ) {
-			return new WP_Error( 'gm_empty_term_name', __( 'A name is required for term' ) );
+			return new WP_Error( 'gm_empty_term_name', __( 'A name is required for term' , 'grand-media') );
 		}
 
 		if ( current_user_can( 'gmedia_edit_others_media' ) ) {
@@ -4066,7 +4070,7 @@ class GmediaDB {
 						$status = esc_sql( $status );
 						// phpcs:ignore
 						if ( false === $wpdb->query( "UPDATE {$wpdb->prefix}gmedia SET status = '{$status}' WHERE ID IN (" . join( ',', $values['gm'] ) . ')' ) ) {
-							return new WP_Error( 'db_insert_error', __( 'Could not update statuses for gmedia items in the database' ), $wpdb->last_error );
+							return new WP_Error( 'db_insert_error', __( 'Could not update statuses for gmedia items in the database' , 'grand-media'), $wpdb->last_error );
 						}
 						if ( ! empty( $values['wp'] ) ) {
 							// phpcs:ignore

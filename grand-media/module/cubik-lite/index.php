@@ -1,0 +1,30 @@
+<?php
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+$module_info = array(
+	'base'         => 'cubik-lite',
+	'name'         => 'cubik-lite',
+	'title'        => 'Cubik Lite',
+	'version'      => '2.0',
+	'author'       => 'GalleryCreator',
+	'description'  => __( 'Perfect gallery module for widget. This is a light version of Cubik module.
+
+Responsive and mobile friendly &bull; Working in all major browsers &bull; built with HTML5 & CSS3', 'grand-media' ),
+	'type'         => 'gallery',
+	'branch'       => '1',
+	'status'       => 'free',
+	'price'        => '',
+	'demo'         => 'http://codeasily.com/portfolio/gmedia-gallery-modules/cubik-3d-photo-gallery-for-wordpress/',
+	'download'     => 'http://codeasily.com/download/cubik-lite-module-zip/',
+	'dependencies' => '',
+);
+$gmedia_php_self = isset( $_SERVER['PHP_SELF'] ) ? wp_unslash( $_SERVER['PHP_SELF'] ) : '';
+if ( preg_match( '#' . basename( dirname( __FILE__ ) ) . '/' . basename( __FILE__ ) . '#', $gmedia_php_self ) ) {
+	if ( isset( $_GET['info'] ) ) {
+		echo '<pre>' . esc_html( print_r( $module_info, true ) ) . '</pre>';
+	} else {
+		header( "Location: {$module_info['demo']}" );
+		die();
+	}
+}

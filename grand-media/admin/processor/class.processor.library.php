@@ -1,4 +1,7 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
 /**
  * GmediaProcessor_Library
@@ -253,7 +256,7 @@ class GmediaProcessor_Library extends GmediaProcessor {
 											$status = esc_sql( $term->status );
 											// phpcs:ignore
 											if ( false === $wpdb->query( "UPDATE {$wpdb->prefix}gmedia SET status = '{$status}' WHERE ID IN (" . join( ',', $values ) . ')' ) ) {
-												$this->error[] = esc_html__( 'Could not update statuses for gmedia items in the database' );
+												$this->error[] = esc_html__( 'Could not update statuses for gmedia items in the database' , 'grand-media');
 											}
 										}
 									}
@@ -495,11 +498,14 @@ class GmediaProcessor_Library extends GmediaProcessor {
 
 												if ( file_is_displayable_image( $fileinfo['dirpath'] . '/' . $gmedia['gmuid'] ) ) {
 													if ( is_file( $fileinfo['dirpath_original'] . '/' . $gmedia['gmuid'] ) ) {
+														// phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- Atomic local rename must preserve an existing destination on failure; WP_Filesystem::move deletes it first.
 														@rename( $fileinfo['dirpath_original'] . '/' . $gmedia['gmuid'], $fileinfo['filepath_original'] );
 													}
+													// phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- Atomic local rename must preserve an existing destination on failure; WP_Filesystem::move deletes it first.
 													@rename( $fileinfo['dirpath_thumb'] . '/' . $gmedia['gmuid'], $fileinfo['filepath_thumb'] );
 												}
 											}
+											// phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- Atomic local rename must preserve an existing destination on failure; WP_Filesystem::move deletes it first.
 											if ( @rename( $fileinfo['dirpath'] . '/' . $gmedia['gmuid'], $fileinfo['filepath'] ) ) {
 												$gmedia['gmuid']     = $fileinfo['basename'];
 												$batch_data['gmuid'] = $fileinfo['basename'];
@@ -834,7 +840,9 @@ class GmediaProcessor_Library extends GmediaProcessor {
 		}
 
 		$args['mime_type']        = $gmCore->_get( 'mime_type' );
-		$args['status']           = $gmCore->_get( 'status' );
+		// Anonymous callers (e.g. the nopriv gmedia_get_data endpoint) must never
+		// reach draft/private media, regardless of a requested status parameter.
+		$args['status']           = is_user_logged_in() ? $gmCore->_get( 'status' ) : 'publish';
 		$args['page']             = $gmCore->_get( 'pager' );
 		$args['per_page']         = $gmCore->_get( 'per_page', $per_page );
 		$args['author__in']       = parent::filter_by_author( $gmCore->_get( 'author__in', $gmCore->_get( 'author' ) ) );

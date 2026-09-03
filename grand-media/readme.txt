@@ -3,9 +3,9 @@ Contributors: pasyuk
 Donate link: https://codeasily.com/donate/
 Tags: best gallery plugin, gallery, image gallery, photo gallery, wordpress gallery plugin
 Requires at least: 5.4.0
-Tested up to: 6.9
+Tested up to: 7.1
 Requires PHP: 5.6
-Stable tag: 1.25.0
+Stable tag: 1.25.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -138,6 +138,9 @@ Use [Gmedia Support Forum](https://codeasily.com/community/forum/gmedia-gallery-
 
 = Modules Updated =
 * Go to Gmedia Modules page and update installed premium modules to latest versions
+
+= v1.25.1 =
+* Security: Restrict anonymous media queries to published items.
 
 = v1.25.0 =
 * Fix image upload.
@@ -577,10 +580,7 @@ Update Gallery modules to the latest version: PhotoMania, PhotoTravlr, Desire !!
 Database changed. Backup before updating.
 
 = Grand Media Gallery v1.5.5 =
-If you want to import IPTC Keywords to Tags for already uploaded images, you need:
-  1) Select images with IPTC Keywords in Gmedia Library
-  2) In Action menu choose "Update Metadata in Database"
-  3) In Action menu choose "Add Tags.." -> check "Import IPTC Keywords from selected images to Tags" -> click "Add Tags" button
+To import IPTC keywords as tags for existing images: select the images in Gmedia Library, choose "Update Metadata in Database", then "Add Tags..". Check "Import IPTC Keywords from selected images to Tags" and click "Add Tags".
 
 = Grand Media Gallery v0.9.6 =
 Backup before updating.
