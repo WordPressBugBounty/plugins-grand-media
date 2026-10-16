@@ -4,15 +4,14 @@
  * Plugin Name: Gmedia Photo Gallery
  * Plugin URI: http://wordpress.org/extend/plugins/grand-media/
  * Description: Gmedia Gallery - powerful media library plugin for creating beautiful galleries and managing files.
- * Version: 1.25.1
+ * Version: 1.25.2
  * Author: Rattus
  * Author URI: https://codeasily.com/
  * Requires at least: 5.4.0
  * Tested up to: 7.1
- * Stable tag: 1.25.1
+ * Stable tag: 1.25.2
  * License: GPLv2 or later
  * Text Domain: grand-media
- * Domain Path: /lang
  */
 /*
 		Copyright (C) 2011  Rattus  (email : gmediafolder@gmail.com)
@@ -94,7 +93,7 @@ if ( !class_exists( 'Gmedia' ) ) {
      * Class Gmedia
      */
     class Gmedia {
-        public $version = '1.25.1';
+        public $version = '1.25.2';
 
         public $dbversion = '1.8.0';
 
@@ -172,8 +171,6 @@ if ( !class_exists( 'Gmedia' ) ) {
 
         public function start_plugin() {
             $this->load_dependencies();
-            // Load the language file.
-            $this->load_textdomain();
             require_once dirname( __FILE__ ) . '/inc/functions.php';
             // Check for upgrade.
             $this->upgrade();
@@ -353,10 +350,6 @@ if ( !class_exists( 'Gmedia' ) ) {
                 'data-gmedia' => array(),
             );
             $gm_allowed_tags = wp_kses_allowed_html( $allowed_tags );
-        }
-
-        public function load_textdomain() {
-            load_plugin_textdomain( 'grand-media', false, GMEDIA_FOLDER . '/lang/' );
         }
 
         public function register_scripts_backend() {
@@ -559,7 +552,7 @@ if ( !class_exists( 'Gmedia' ) ) {
         public function load_module_scripts() {
             global $wp_styles;
             $deps = array();
-            $xmlhttprequest = isset( $_SERVER['HTTP_X_REQUESTED_WITH'] ) && 'xmlhttprequest' === strtolower( $_SERVER['HTTP_X_REQUESTED_WITH'] );
+            $xmlhttprequest = isset( $_SERVER['HTTP_X_REQUESTED_WITH'] ) && is_string( $_SERVER['HTTP_X_REQUESTED_WITH'] ) && 'xmlhttprequest' === strtolower( sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_REQUESTED_WITH'] ) ) );
             foreach ( $this->do_module as $m => $module ) {
                 $deps = array_merge( $deps, explode( ',', $module['info']['dependencies'] ) );
                 $deps = apply_filters( 'gmedia_module_js_dependencies', $deps, $m );
